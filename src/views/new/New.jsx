@@ -5,6 +5,7 @@ import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 import "./styles.css";
 import { convertToRaw, EditorState } from "draft-js";
 import draftToHtml from "draftjs-to-html";
+import { API_URL, getAuthHeaders } from "../../apiConfig";
 
 const NewBlogPost = () => {
   const [authors, setAuthors] = useState([]);
@@ -22,20 +23,20 @@ const NewBlogPost = () => {
   useEffect(() => {
     const fetchAuthors = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-        const response = await fetch(`${apiUrl}/authors`);
+        const response = await fetch(`${API_URL}/authors`);
 
         if (!response.ok) {
           throw new Error("Errore nel recupero autori");
         }
 
         const authorsData = await response.json();
-        setAuthors(authorsData);
+        const authorsList = authorsData.authors || authorsData;
+        setAuthors(authorsList);
 
-        if (authorsData.length > 0) {
+        if (authorsList.length > 0) {
           setFormData((currentFormData) => ({
             ...currentFormData,
-            author: authorsData[0]._id,
+            author: authorsList[0]._id,
           }));
         }
       } catch (error) {
@@ -73,13 +74,13 @@ const NewBlogPost = () => {
     setErrorMessage("");
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
       const content = draftToHtml(convertToRaw(editorState.getCurrentContent()));
 
-      const response = await fetch(`${apiUrl}/blogPosts`, {
+      const response = await fetch(`${API_URL}/blogPosts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           category: formData.category,

@@ -1,9 +1,26 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const multer = require("multer");
 const AuthorModel = require("../../models/author");
 const BlogPostModel = require("../../models/blogPost");
+const uploadImage = require("../../utils/cloudinary");
+const sendEmail = require("../../utils/email");
 
 const authorsRouter = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024,
+  },
+});
+
+const getPagination = (req) => {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 50);
+  const skip = (page - 1) * limit;
+
+  return { page, limit, skip };
+};
 
 const formatBlogPost = (blogPost) => ({
   _id: blogPost._id,
@@ -24,8 +41,19 @@ const formatBlogPost = (blogPost) => ({
 
 authorsRouter.get("/", async (req, res, next) => {
   try {
-    const authors = await AuthorModel.find();
-    res.send(authors);
+    const { page, limit, skip } = getPagination(req);
+
+    const [authors, totalAuthors] = await Promise.all([
+      AuthorModel.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
+      AuthorModel.countDocuments(),
+    ]);
+
+    res.send({
+      authors,
+      page,
+      totalPages: Math.ceil(totalAuthors / limit),
+      totalAuthors,
+    });
   } catch (error) {
     next(error);
   }
@@ -45,11 +73,47 @@ authorsRouter.get("/:authorId/blogPosts", async (req, res, next) => {
       return res.status(404).send({ message: "Autore non trovato" });
     }
 
-    const blogPosts = await BlogPostModel.find({ author: authorId })
-      .populate("author")
-      .sort({ createdAt: -1 });
+    const { page, limit, skip } = getPagination(req);
 
-    res.send(blogPosts.map(formatBlogPost));
+    const [blogPosts, totalPosts] = await Promise.all([
+      BlogPostModel.find({ author: authorId })
+        .populate("author")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      BlogPostModel.countDocuments({ author: authorId }),
+    ]);
+
+    res.send({
+      posts: blogPosts.map(formatBlogPost),
+      page,
+      totalPages: Math.ceil(totalPosts / limit),
+      totalPosts,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authorsRouter.patch("/:authorId/avatar", upload.single("avatar"), async (req, res, next) => {
+  try {
+    const { authorId } = req.params;
+
+    if (!mongoose.isValidObjectId(authorId)) {
+      return res.status(400).send({ message: "Id autore non valido" });
+    }
+
+    const author = await AuthorModel.findById(authorId);
+
+    if (!author) {
+      return res.status(404).send({ message: "Autore non trovato" });
+    }
+
+    const result = await uploadImage(req.file, "strive-blog/authors");
+    author.avatar = result.secure_url;
+    await author.save();
+
+    res.send(author);
   } catch (error) {
     next(error);
   }
@@ -79,6 +143,13 @@ authorsRouter.post("/", async (req, res, next) => {
   try {
     const newAuthor = new AuthorModel(req.body);
     const savedAuthor = await newAuthor.save();
+
+    await sendEmail({
+      to: savedAuthor.email,
+      subject: "Benvenuto su Strive Blog",
+      text: `Ciao ${savedAuthor.nome}, il tuo autore e' stato creato correttamente.`,
+    });
+
     res.status(201).send(savedAuthor);
   } catch (error) {
     next(error);
@@ -121,6 +192,8 @@ authorsRouter.delete("/:authorId", async (req, res, next) => {
     if (!deletedAuthor) {
       return res.status(404).send({ message: "Autore non trovato" });
     }
+
+    await BlogPostModel.deleteMany({ author: authorId });
 
     res.send({ message: "Autore eliminato correttamente" });
   } catch (error) {

@@ -1,5 +1,4 @@
 /._.env
-/._.env.example
 /._README.md
 /._build
 /._node_modules
@@ -10,4 +9,7 @@
 /._server.js
 /._src
 /.env
-/.env.example
+node_modules
+dist
+coverage
+.npm-cache

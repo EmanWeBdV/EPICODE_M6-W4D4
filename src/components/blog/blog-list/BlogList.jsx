@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Col, Row, Spinner } from "react-bootstrap";
+import { Alert, Button, Col, Row, Spinner } from "react-bootstrap";
+import { API_URL } from "../../../apiConfig";
 import BlogItem from "../blog-item/BlogItem";
 
 const BlogList = ({ searchValue }) => {
   const [posts, setPosts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPosts, setTotalPosts] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchValue]);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -13,16 +21,25 @@ const BlogList = ({ searchValue }) => {
         setLoading(true);
         setError("");
 
-        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-        const query = searchValue ? `?title=${encodeURIComponent(searchValue)}` : "";
-        const response = await fetch(`${apiUrl}/blogPosts${query}`);
+        const query = new URLSearchParams({
+          page,
+          limit: 6,
+        });
+
+        if (searchValue) {
+          query.append("title", searchValue);
+        }
+
+        const response = await fetch(`${API_URL}/blogPosts?${query.toString()}`);
 
         if (!response.ok) {
           throw new Error("Errore nel recupero dei post");
         }
 
         const postsData = await response.json();
-        setPosts(postsData);
+        setPosts(postsData.posts || postsData);
+        setTotalPages(postsData.totalPages || 1);
+        setTotalPosts(postsData.totalPosts || postsData.length || 0);
       } catch (error) {
         setError("Backend non disponibile o nessun post presente nel database.");
       } finally {
@@ -31,7 +48,7 @@ const BlogList = ({ searchValue }) => {
     };
 
     fetchPosts();
-  }, [searchValue]);
+  }, [searchValue, page]);
 
   if (loading) {
     return (
@@ -62,6 +79,28 @@ const BlogList = ({ searchValue }) => {
           </Col>
         ))}
       </Row>
+
+      {!error && totalPosts > 0 && (
+        <div className="d-flex justify-content-between align-items-center mb-5">
+          <Button
+            variant="outline-dark"
+            disabled={page === 1}
+            onClick={() => setPage((currentPage) => currentPage - 1)}
+          >
+            Precedente
+          </Button>
+          <span>
+            Pagina {page} di {totalPages} - {totalPosts} articoli
+          </span>
+          <Button
+            variant="outline-dark"
+            disabled={page === totalPages}
+            onClick={() => setPage((currentPage) => currentPage + 1)}
+          >
+            Successiva
+          </Button>
+        </div>
+      )}
     </>
   );
 };

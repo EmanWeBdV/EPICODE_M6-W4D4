@@ -3,14 +3,17 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const passport = require("passport");
 const authorsRouter = require("./src/api/authors/authors");
 const blogPostsRouter = require("./src/api/blogPosts/blogPosts");
+const { authRouter } = require("./src/api/auth/auth");
 
 const server = express();
 const port = process.env.PORT || 3001;
 
 server.use(cors());
 server.use(express.json());
+server.use(passport.initialize());
 
 server.get("/", (req, res) => {
   res.send("Strive Blog API");
@@ -18,6 +21,7 @@ server.get("/", (req, res) => {
 
 server.use("/authors", authorsRouter);
 server.use("/blogPosts", blogPostsRouter);
+server.use("/auth", authRouter);
 
 server.use((err, req, res, next) => {
   console.error(err);
