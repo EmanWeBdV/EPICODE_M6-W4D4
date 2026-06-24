@@ -1,0 +1,13 @@
+/._.env
+/._.env.example
+/._README.md
+/._build
+/._node_modules
+/._package-lock.json
+/._package.json
+/._public
+/._scripts
+/._server.js
+/._src
+/.env
+/.env.example

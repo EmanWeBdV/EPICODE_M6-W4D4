@@ -1,0 +1,17 @@
+.new-blog-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 100px;
+}
+
+.new-blog-editor-wrapper {
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  min-height: 400px;
+  background-color: white;
+}
+
+.new-blog-content {
+  height: 320px;
+  padding: 1rem;
+}
